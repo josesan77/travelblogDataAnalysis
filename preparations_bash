@@ -1,0 +1,144 @@
+ wget [dataserverofdatasource]/testtask/traveller_data.csv
+
+--- test purpose on file content, responses deleted ---
+cat traveller_data.csv | head
+cat traveller_data.csv | tail
+cat traveller_data.csv | grep subscr | tail
+
+--- split the large file to separate files based on content
+cat traveller_data.csv | grep subscription > subscriptions.csv
+cat traveller_data.csv | grep read > read.csv 
+cat traveller_data.csv | grep buy > buy.csv
+
+--- test purpose, on file content ---
+cat buy.csv | head
+cat read.csv | head
+cat subscriptions.csv | head
+
+--- check line numbers
+wc -l traveller_data.csv
+ 597902 traveller_data.csv
+
+wc -l subscriptions.csv
+ 7618 subscriptions.csv
+
+wc -l read.csv
+ 581877 read.csv
+
+wc -l buy.csv
+ 8407 buy.csv
+
+--- double check by summing up split file line number:
+--- 7618+581877+8407= 597 902 OK!
+
+--- A "source" is defined which is related to the source of the reader:
+--- which payed advertising "package" brought the reader to the website.
+---- Note: the source is not listed at subscription event but on "first read" event!
+
+--- test purpose, on file content ---
+cat subscriptions.csv | head
+ 2018-01-01 00:07:41;subscribe;2458151268
+ 2018-01-01 00:07:44;subscribe;2458151267
+ 2018-01-01 00:40:55;subscribe;2458151309
+ 2018-01-01 01:26:26;subscribe;2458151358
+ 2018-01-01 01:30:39;subscribe;2458151361
+ 2018-01-01 02:15:37;subscribe;2458151417
+ 2018-01-01 02:56:58;subscribe;2458151468
+ 2018-01-01 03:24:18;subscribe;2458151501
+ 2018-01-01 03:53:26;subscribe;2458151543
+ 2018-01-01 03:58:02;subscribe;2458151555
+--- so the content is:
+date+time;"subscribe"; userID
+
+--- test purpose, on file content ---
+2) cat buy.csv | head
+ 2018-01-01 04:04:59;buy;2458151555;8
+ 2018-01-01 09:28:00;buy;2458151933;8
+ 2018-01-01 13:23:16;buy;2458152245;8
+ 2018-01-01 14:20:43;buy;2458152315;8
+ 2018-01-01 16:56:04;buy;2458152371;8
+ 2018-01-01 17:01:42;buy;2458152371;80
+ 2018-01-01 18:59:49;buy;2458152315;80
+ 2018-01-02 02:57:43;buy;2458153264;8
+ 2018-01-02 03:48:38;buy;2458151481;8
+ 2018-01-02 05:25:38;buy;2458152579;8
+--- so the content is:
+date+time;buy;userID;amount (if 8: pdf, if 80 video)
+
+--- test purpose, on file content ---
+3) cat read.csv | head
+ 2018-01-01 00:01:01;read;country_7;2458151261;ADVERTISER1;North America
+ 2018-01-01 00:03:20;read;country_7;2458151262;ADVERTISER1;South America
+ 2018-01-01 00:04:01;read;country_7;2458151263;ADVERTISER2;Africa
+ 2018-01-01 00:04:02;read;country_7;2458151264;ADVERTISER2;Europe
+ 2018-01-01 00:05:03;read;country_8;2458151265;ADVERTISER3;North America
+ 2018-01-01 00:05:42;read;country_6;2458151266;ADVERTISER3;North America
+ 2018-01-01 00:06:06;read;country_2;2458151267;ADVERTISER3;Europe
+ 2018-01-01 00:06:15;read;country_6;2458151268;ADVERTISER2;Europe
+ 2018-01-01 00:07:21;read;country_7;2458151269;ADVERTISER2;North America
+ 2018-01-01 00:07:29;read;country_5;2458151270;ADVERTISER3;North America
+--- so the content is:
+date+time;read;country_of_origin;userID;sourceORskipped;topic
+
+---- Note: why the source is not the ultimate and the topic should be ahead of it?!
+---- might be noted for the traveller to change the data collection method/order.
+
+--- reorganizing the read.csv further to 2 parts:
+- simple read (fixed number of columns)
+- first read -> contains the source!
+- delete "source" from the 2nd block -> and then merge back with the 1st block to have all read events!
++ split date and time (in the file) or might be used as datetime (just have to well configure the string -> datetime conversion) 
+
+--- starting in inverse order (creating "copies" for safety):
+sed -e 's/\s\+/;/g' read.csv > read2.csv
+sed -e 's/\s\+/;/g' buy.csv > buy2.csv
+sed -e 's/\s\+/;/g' subscriptions.csv > subscriptions2.csv
+
+--- test purpose, on file content ---
+cat read2.csv | head
+ 2018-01-01;00:01:01;read;country_7;2458151261;ADVERTISER1;North;America
+ ...
+
+cat buy2.csv | head
+ 2018-01-01;04:04:59;buy;2458151555;8
+ ...
+
+cat subscriptions2.csv | head
+ 2018-01-01;00:07:41;subscribe;2458151268
+ ...
+
+--- combining source related data
+grep 'ADVERTISER2' read2.csv > registration.csv        grep 'ADVERTISER3' read2.csv >> registration.csv
+grep 'ADVERTISER1' read2.csv >> registration.csv
+
+cat registration.csv | tail
+ 2018-03-30;23:36:44;read;country_4;2458361246;ADVERTISER1;North;America
+
+cat registration.csv | wc -l
+ 210023
+--- OK!
+
+--- remove sources
+2/1
+grep -v 'ADVERTISER1' read2.csv | grep -v 'ADVERTISER2' | grep -v 'ADVERTISER3' > read_sourcefree.csv
+
+2/2
+--- test purpose ---
+grep 'ADVERTISER1' read2.csv | cut -d';' -f1,2,3,4,5,7,8 | head
+ 2018-01-01;00:01:01;read;country_7;2458151261;North;America
+
+-- in real
+grep 'ADVERTISER1' read2.csv | cut -d';' -f1,2,3,4,5,7,8 >> read_sourcefree.csv
+grep 'ADVERTISER3' read2.csv | cut -d';' -f1,2,3,4,5,7,8 >> read_sourcefree.csv
+grep 'ADVERTISER2' read2.csv | cut -d';' -f1,2,3,4,5,7,8 >> read_sourcefree.csv
+
+--- test purpose ---
+ cat read_sourcefree.csv | wc -l
+ 581877
+--- result: OK!
+
+--- list of created files to use in next steps:
+ registration.csv
+ read_sourcefree.csv
+ buy2.csv
+ subscriptions2.csv
