@@ -1,0 +1,108 @@
+Create tables in the PostgreSQL Database
+(using SQLWorkbench or Linux bash -> posgresql commands)
+lines or text parts starting with "--" are not executed rather are comments!
+
+--------------------------------
+
+-- create tables for traveller_data.csv exported information for
+-- 1) registration.csv,
+-- 2) read_sourcefree.csv,
+-- 3) buy.csv,
+-- 4) subscriptions.csv
+
+-- 1) registration.csv content:
+-- 2018-01-01;00:04:01;read;country_7;2458151263;ADVERTISER2;Africa
+-- "t_" pre-tag stands for table, not to confuse with (upcoming) variables
+
+CREATE TABLE t_registrations (
+  reg_date DATE,
+  reg_time TIME,
+  event TEXT,
+  country TEXT,
+  userID BIGINT PRIMARY KEY,
+  source TEXT,
+  topic TEXT);
+-- Note1: 'topic' is useless in this situation (may be removed to save space and CPU time...)
+-- Note2: had to use "BIGINT" for userID as the ID numbers given by the website were out of the acceptable range of "INTEGER"
+-- PRIMARY KEY only here!
+  
+COMMIT; -- Workbench may be set to autocommit, then no need for this command! Otherwise after each table creation!
+
+
+-- 2) read_sourcefree.csv content:
+-- 2018-01-01;02:20:18;read;country_5;2458151287;North America
+
+CREATE TABLE IF NOT EXISTS t_reads (
+  reg_date DATE,
+  reg_time TIME,
+  event TEXT,
+  country TEXT,
+  userID BIGINT,
+  topic TEXT);
+
+-- 3) buy.csv content:
+-- 2018-01-01;04:04:59;buy;2458151555;8
+
+CREATE TABLE IF NOT EXISTS t_buy (
+  reg_date DATE,
+  reg_time TIME,
+  event TEXT,
+  userID BIGINT,
+  amount INTEGER);
+
+-- 4) subscriptions.csv
+-- 2018-01-01;00:07:41;subscribe;2458151268
+CREATE TABLE IF NOT EXISTS t_subscriptions (
+  reg_date DATE,
+  reg_time TIME,
+  event TEXT,
+  userID BIGINT);
+  
+--------------------------------------------------
+
+2. COPY data from csv files to the above created data tables (made in bash / postgresql)
+
+psql -U [username] -d [databasename]
+-- in my case [databasename] = "postgres" (without the " signs)
+-- then copy all files to the corresponding data table
+
+\COPY t_registrations  FROM '/home/[username]/traveller/registration.csv' DELIMITER ';';
+ COPY 210023
+
+\COPY t_reads  FROM '/home/[username]/traveller/read_sourcefree.csv' DELIMITER ';';
+ COPY 581877
+
+\COPY t_buy  FROM '/home/[username]/traveller/buy.csv' DELIMITER ';';
+ COPY 8407
+
+\COPY t_subscriptions  FROM '/home/[username]/traveller/subscriptions.csv' DELIMITER ';';
+ COPY 7618
+
+(postgres) \q (+ENTER)
+
+-- double checks (in Workbench / postgresql)
+SELECT * FROM t_subscriptions
+LIMIT 10;
+-- checked
+
+SELECT COUNT(*) FROM t_subscriptions;
+-- 7618, OK
+
+SELECT * FROM t_buy
+LIMIT 10;
+-- checked
+SELECT COUNT(*) FROM t_buy;
+-- 8407, OK
+
+
+SELECT * FROM t_reads
+LIMIT 10;
+-- checked
+SELECT COUNT(*) FROM t_reads;
+-- 581877, OK
+
+SELECT * FROM t_registrations
+LIMIT 10;
+-- checked
+SELECT COUNT(*) FROM t_registrations;
+-- 210023, seems to be OK
